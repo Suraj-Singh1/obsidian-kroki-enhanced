@@ -90,11 +90,6 @@ export class KrokiClient {
         throw: false
       };
       
-      // Set timeout if provided
-      if (options.timeout) {
-        requestParams.timeout = options.timeout;
-      }
-      
       // Send the request
       const response = await this.sendRequestWithRetry(
         requestParams, 
@@ -140,11 +135,6 @@ export class KrokiClient {
         body: options.source,
         throw: false
       };
-      
-      // Set timeout if provided
-      if (options.timeout) {
-        requestParams.timeout = options.timeout;
-      }
       
       // Send the request
       const response = await this.sendRequestWithRetry(
