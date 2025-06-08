@@ -1,5 +1,6 @@
-import { Plugin, PluginSettingTab, Setting, App, MarkdownPostProcessorContext, MarkdownRenderer } from 'obsidian';
+import { Plugin, PluginSettingTab, Setting, App, MarkdownPostProcessorContext, MarkdownRenderer, Menu, TFile } from 'obsidian';
 import { DiagramRenderer } from './src/diagram-renderer';
+import { ExportModal } from './src/export-modal';
 
 // Define interfaces for plugin settings
 interface KrokiDiagramType {
@@ -299,6 +300,38 @@ export default class KrokiEnhancedPlugin extends Plugin {
     // Register code block processors for each enabled diagram type
     this.registerDiagramProcessors();
 
+    // Add export command
+    this.addCommand({
+      id: 'export-with-kroki',
+      name: 'Export current file with Kroki diagrams',
+      checkCallback: (checking: boolean) => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (activeFile) {
+          if (!checking) {
+            new ExportModal(this.app, this, activeFile).open();
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    // Add context menu item for export
+    this.registerEvent(
+      this.app.workspace.on('file-menu', (menu, file) => {
+        if (file instanceof TFile && file.extension === 'md') {
+          menu.addItem((item) => {
+            item
+              .setTitle('Export with Kroki diagrams')
+              .setIcon('download')
+              .onClick(() => {
+                new ExportModal(this.app, this, file).open();
+              });
+          });
+        }
+      })
+    );
+
     // Add debug log
     if (this.settings.enableDebugMode) {
       console.log('Kroki Enhanced plugin loaded with settings:', this.settings);
@@ -508,29 +541,3 @@ class KrokiSettingTab extends PluginSettingTab {
       text: 'Configure the Kroki server connection and request parameters.',
       cls: 'kroki-settings-info'
     });
-    
-    new Setting(serverSection)
-      .setName('Kroki Server URL')
-      .setDesc('URL of the Kroki server to use for rendering diagrams. Use https://kroki.io/ for the public instance or your own server URL.')
-      .addText(text => text
-        .setPlaceholder('https://kroki.io/')
-        .setValue(this.plugin.settings.server_url)
-        .onChange(async (value) => {
-          this.plugin.settings.server_url = value;
-          await this.plugin.saveSettings();
-        }));
-    
-    new Setting(serverSection)
-      .setName('Custom Header')
-      .setDesc('Optional custom header to send with requests to the Kroki server (e.g., for authentication)')
-      .addText(text => text
-        .setPlaceholder('Authorization: Bearer your-token')
-        .setValue(this.plugin.settings.header)
-        .onChange(async (value) => {
-          this.plugin.settings.header = value;
-          await this.plugin.saveSettings();
-        }));
-  }
-
-  private createPerformanceSettings(containerEl: HTMLElement): void {
-    const perfSection = containerEl.createDiv({ cls: 'kroki-settings-section' });
