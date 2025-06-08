@@ -526,17 +526,32 @@ export default class KrokiEnhancedPlugin extends Plugin {
       loadingEl.remove();
     }
   }
-
   handleRenderError(el: HTMLElement, error: Error, source: string, language: string) {
     // Create error container
     const errorContainer = el.createDiv({ cls: 'kroki-error-container' });
     
     // Add error message
     const errorMessage = errorContainer.createDiv({ cls: 'kroki-error-message' });
-    errorMessage.setText(`Error: ${error.message || error}`);
+    errorMessage.setText(`Error rendering ${language} diagram: ${error.message}`);
+    
+    // Add details button if debug mode is enabled
+    if (this.settings.enableDebugMode) {
+      const detailsButton = errorContainer.createEl('button', { 
+        text: 'Show Details',
+        cls: 'kroki-error-details-button'
+      });
+      
+      detailsButton.addEventListener('click', () => {
+        const detailsEl = errorContainer.createDiv({ cls: 'kroki-error-details' });
+        detailsEl.createEl('h4', { text: 'Error Details:' });
+        detailsEl.createEl('pre', { text: error.stack || error.message });
+        detailsEl.createEl('h4', { text: 'Source Code:' });
+        detailsEl.createEl('pre', { text: source });
+        detailsButton.remove();
+      });
+    }
   }
 }
-
 
 class KrokiSettingTab extends PluginSettingTab {
   plugin: KrokiEnhancedPlugin;
@@ -548,125 +563,200 @@ class KrokiSettingTab extends PluginSettingTab {
 
   display(): void {
     const { containerEl } = this;
-
     containerEl.empty();
+    
     containerEl.createEl('h2', { text: 'Kroki Enhanced Settings' });
-
-    // Server URL setting
+    
+    // Server settings section
+    containerEl.createEl('h3', { text: 'Server Settings' });
+    
     new Setting(containerEl)
       .setName('Kroki Server URL')
-      .setDesc('The base URL of the Kroki server.')
-      .addText(text =>
-        text
-          .setPlaceholder('https://kroki.io/')
-          .setValue(this.plugin.settings.server_url)
-          .onChange(async (value) => {
-            this.plugin.settings.server_url = value.trim();
-            await this.plugin.saveSettings();
-          })
-      );
+      .setDesc('URL of the Kroki server to use for rendering diagrams')
+      .addText(text => text
+        .setPlaceholder('https://kroki.io/' )
+        .setValue(this.plugin.settings.server_url)
+        .onChange(async (value) => {
+          this.plugin.settings.server_url = value;
+          await this.plugin.saveSettings();
+        }));
 
-    // Header setting
     new Setting(containerEl)
-      .setName('Custom HTTP Header')
-      .setDesc('Optional custom HTTP header sent to Kroki server.')
-      .addText(text =>
-        text
-          .setPlaceholder('')
-          .setValue(this.plugin.settings.header)
-          .onChange(async (value) => {
-            this.plugin.settings.header = value;
-            await this.plugin.saveSettings();
-          })
-      );
+      .setName('Custom Header')
+      .setDesc('Optional custom header to send with requests (e.g., for authentication)')
+      .addText(text => text
+        .setPlaceholder('Authorization: Bearer token')
+        .setValue(this.plugin.settings.header)
+        .onChange(async (value) => {
+          this.plugin.settings.header = value;
+          await this.plugin.saveSettings();
+        }));
 
-    // Enable debug mode
-    new Setting(containerEl)
-      .setName('Enable Debug Mode')
-      .setDesc('Enable detailed logging for debugging.')
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.enableDebugMode)
-          .onChange(async (value) => {
-            this.plugin.settings.enableDebugMode = value;
-            await this.plugin.saveSettings();
-          })
-      );
+    // Diagram types section
+    containerEl.createEl('h3', { text: 'Diagram Types' });
+    containerEl.createEl('p', { 
+      text: 'Enable or disable specific diagram types and configure custom aliases.'
+    });
 
-    // Export Pandoc Path
+    Object.entries(this.plugin.settings.diagramTypes).forEach(([key, diagramType]) => {
+      const diagramContainer = containerEl.createDiv({ cls: 'kroki-diagram-setting' });
+      
+      // Main toggle for the diagram type
+      new Setting(diagramContainer)
+        .setName(diagramType.prettyName)
+        .setDesc(`${diagramType.description} (${diagramType.krokiBlockName})`)
+        .addToggle(toggle => toggle
+          .setValue(diagramType.enabled)
+          .onChange(async (value) => {
+            this.plugin.settings.diagramTypes[key].enabled = value;
+            await this.plugin.saveSettings();
+          }))
+        .addExtraButton(button => button
+          .setIcon('external-link')
+          .setTooltip('Open documentation')
+          .onClick(() => {
+            window.open(diagramType.url, '_blank');
+          }));
+      
+      // Aliases setting
+      new Setting(diagramContainer)
+        .setName('Custom Aliases')
+        .setDesc('Comma-separated list of alternative language identifiers')
+        .addText(text => text
+          .setPlaceholder('alias1, alias2')
+          .setValue(diagramType.aliases.join(', '))
+          .onChange(async (value) => {
+            const aliases = value.split(',').map(alias => alias.trim()).filter(alias => alias.length > 0);
+            this.plugin.settings.diagramTypes[key].aliases = aliases;
+            await this.plugin.saveSettings();
+          }));
+    });
+
+    // Export settings section
+    containerEl.createEl('h3', { text: 'Export Settings' });
+    
     new Setting(containerEl)
       .setName('Pandoc Path')
-      .setDesc('Path to the pandoc executable for export (default: pandoc in PATH).')
-      .addText(text =>
-        text
-          .setPlaceholder('pandoc')
-          .setValue(this.plugin.settings.exportPandocPath)
-          .onChange(async (value) => {
-            this.plugin.settings.exportPandocPath = value;
-            await this.plugin.saveSettings();
-          })
-      );
+      .setDesc('Path to the Pandoc executable')
+      .addText(text => text
+        .setPlaceholder('pandoc')
+        .setValue(this.plugin.settings.exportPandocPath)
+        .onChange(async (value) => {
+          this.plugin.settings.exportPandocPath = value;
+          await this.plugin.saveSettings();
+        }));
 
-    // Export Default Format
     new Setting(containerEl)
       .setName('Default Export Format')
-      .setDesc('Default export format (e.g., pdf, docx, html).')
-      .addText(text =>
-        text
-          .setPlaceholder('pdf')
-          .setValue(this.plugin.settings.exportDefaultFormat)
-          .onChange(async (value) => {
-            this.plugin.settings.exportDefaultFormat = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    // Export Custom Args
+      .setDesc('Default format for document exports')
+      .addDropdown(dropdown => dropdown
+        .addOption('pdf', 'PDF')
+        .addOption('docx', 'Word Document')
+        .addOption('html', 'HTML')
+        .addOption('latex', 'LaTeX')
+        .addOption('epub', 'EPUB')
+        .setValue(this.plugin.settings.exportDefaultFormat)
+        .onChange(async (value) => {
+          this.plugin.settings.exportDefaultFormat = value;
+          await this.plugin.saveSettings();
+        }));
+    
     new Setting(containerEl)
-      .setName('Custom Export Arguments')
-      .setDesc('Custom arguments to pass to the export command.')
-      .addText(text =>
-        text
-          .setPlaceholder('')
-          .setValue(this.plugin.settings.exportCustomArgs)
-          .onChange(async (value) => {
-            this.plugin.settings.exportCustomArgs = value;
-            await this.plugin.saveSettings();
-          })
-      );
+      .setName('Custom Pandoc Arguments')
+      .setDesc('Additional arguments to pass to Pandoc during export (one per line)')
+      .addTextArea(text => text
+        .setPlaceholder('--toc\n--number-sections')
+        .setValue(this.plugin.settings.exportCustomArgs)
+        .onChange(async (value) => {
+          this.plugin.settings.exportCustomArgs = value;
+          await this.plugin.saveSettings();
+        }));
 
-    // Cache size
+    new Setting(containerEl)
+      .setName('Custom Styles')
+      .setDesc('Custom CSS or LaTeX styles to apply to exported documents')
+      .addTextArea(text => text
+        .setPlaceholder('body { font-family: Arial; }')
+        .setValue(this.plugin.settings.exportCustomStyles)
+        .onChange(async (value) => {
+          this.plugin.settings.exportCustomStyles = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // Performance settings section
+    containerEl.createEl('h3', { text: 'Performance Settings' });
+    
     new Setting(containerEl)
       .setName('Cache Size')
-      .setDesc('Number of diagrams to cache in memory.')
-      .addText(text =>
-        text
-          .setPlaceholder('100')
-          .setValue(this.plugin.settings.cacheSize.toString())
-          .onChange(async (value) => {
-            const num = parseInt(value);
-            if (!isNaN(num)) {
-              this.plugin.settings.cacheSize = num;
-              await this.plugin.saveSettings();
-            }
-          })
-      );
+      .setDesc('Maximum number of diagrams to keep in cache (0 to disable)')
+      .addSlider(slider => slider
+        .setLimits(0, 500, 10)
+        .setValue(this.plugin.settings.cacheSize)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.cacheSize = value;
+          await this.plugin.saveSettings();
+        }));
 
-    // Cache age
     new Setting(containerEl)
-      .setName('Cache Age (ms)')
-      .setDesc('Maximum age of cached diagrams in milliseconds.')
-      .addText(text =>
-        text
-          .setPlaceholder('3600000')
-          .setValue(this.plugin.settings.cacheAge.toString())
-          .onChange(async (value) => {
-            const num = parseInt(value);
-            if (!isNaN(num)) {
-              this.plugin.settings.cacheAge = num;
-              await this.plugin.saveSettings();
-            }
-          })
-      );
+      .setName('Cache Age')
+      .setDesc('How long to keep diagrams in cache (minutes)')
+      .addSlider(slider => slider
+        .setLimits(1, 1440, 1)
+        .setValue(this.plugin.settings.cacheAge / 60000)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.cacheAge = value * 60000;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Request Timeout')
+      .setDesc('Maximum time to wait for server response (seconds)')
+      .addSlider(slider => slider
+        .setLimits(5, 120, 5)
+        .setValue(this.plugin.settings.requestTimeout / 1000)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.requestTimeout = value * 1000;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Retry Count')
+      .setDesc('Number of times to retry failed requests')
+      .addSlider(slider => slider
+        .setLimits(0, 10, 1)
+        .setValue(this.plugin.settings.retryCount)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.retryCount = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Retry Delay')
+      .setDesc('Initial delay between retries (milliseconds)')
+      .addSlider(slider => slider
+        .setLimits(100, 5000, 100)
+        .setValue(this.plugin.settings.retryDelay)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.retryDelay = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // Debug settings section
+    containerEl.createEl('h3', { text: 'Debug Settings' });
+    
+    new Setting(containerEl)
+      .setName('Enable Debug Mode')
+      .setDesc('Enable detailed logging and error information')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.enableDebugMode)
+        .onChange(async (value) => {
+          this.plugin.settings.enableDebugMode = value;
+          await this.plugin.saveSettings();
+        }));
   }
 }
