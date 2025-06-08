@@ -66,7 +66,7 @@ export class DiagramCache {
       const entry = this.cache.get(key);
       
       // Check if the entry is still valid (not expired)
-      if (Date.now() - entry.timestamp <= this.maxCacheAge) {
+      if (entry && Date.now() - entry.timestamp <= this.maxCacheAge) {
         return entry.renderedContent;
       } else {
         // Remove expired entry
