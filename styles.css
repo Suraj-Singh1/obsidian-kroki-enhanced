@@ -201,12 +201,14 @@
   height: 300px;
   overflow: auto;
   margin-top: 1em;
+  border: 1px solid var(--background-modifier-border);
 }
 
 .kroki-debug-entry {
   margin-bottom: 0.5em;
   border-bottom: 1px solid var(--background-modifier-border);
   padding-bottom: 0.5em;
+  font-size: 0.85em;
 }
 
 .kroki-debug-timestamp {
@@ -217,12 +219,144 @@
 
 .kroki-debug-level-info {
   color: var(--text-accent);
+  font-weight: bold;
+  margin-right: 0.5em;
 }
 
 .kroki-debug-level-warn {
   color: var(--text-warning);
+  font-weight: bold;
+  margin-right: 0.5em;
 }
 
 .kroki-debug-level-error {
   color: var(--text-error);
+  font-weight: bold;
+  margin-right: 0.5em;
+}
+
+.kroki-debug-level-debug {
+  color: var(--text-muted);
+  font-weight: bold;
+  margin-right: 0.5em;
+}
+
+.kroki-debug-category {
+  color: var(--text-accent);
+  margin-right: 0.5em;
+}
+
+.kroki-debug-message {
+  color: var(--text-normal);
+}
+
+.kroki-debug-data {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 3px;
+  padding: 0.5em;
+  margin-top: 0.5em;
+  font-size: 0.8em;
+  overflow-x: auto;
+}
+
+.kroki-debug-tabs {
+  width: 100%;
+}
+
+.kroki-debug-tab-buttons {
+  display: flex;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 1em;
+}
+
+.kroki-debug-tab-button {
+  padding: 0.5em 1em;
+  background-color: var(--background-secondary);
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.kroki-debug-tab-button:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.kroki-debug-tab-button.active {
+  color: var(--text-accent);
+  border-bottom-color: var(--text-accent);
+  background-color: var(--background-primary);
+}
+
+.kroki-debug-tab-content {
+  min-height: 400px;
+}
+
+.kroki-debug-filter {
+  margin-bottom: 1em;
+  padding: 1em;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+}
+
+.kroki-debug-actions {
+  margin-bottom: 1em;
+  padding: 1em;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+}
+
+.kroki-debug-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 2em;
+}
+
+.kroki-debug-stats-section {
+  margin-bottom: 2em;
+}
+
+.kroki-debug-stats-section h3 {
+  margin: 0 0 1em 0;
+  color: var(--text-accent);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 0.5em;
+}
+
+.kroki-debug-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1em;
+}
+
+.kroki-debug-stats-table td {
+  padding: 0.5em;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.kroki-debug-stats-label {
+  font-weight: bold;
+  color: var(--text-normal);
+  width: 50%;
+}
+
+.kroki-debug-stats-value {
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.kroki-debug-json {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 1em;
+  font-family: monospace;
+  font-size: 0.85em;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  color: var(--text-normal);
 }
