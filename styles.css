@@ -1,0 +1,148 @@
+/* Kroki diagram container styles */
+.kroki-diagram-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 1em 0;
+  position: relative;
+}
+
+.kroki-diagram {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* Loading indicator */
+.kroki-loading {
+  padding: 1em;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Error display */
+.kroki-error-container {
+  border: 1px solid var(--background-modifier-error);
+  border-radius: 4px;
+  padding: 1em;
+  margin: 1em 0;
+  background-color: var(--background-modifier-error-rgb);
+  color: var(--text-error);
+  width: 100%;
+}
+
+.kroki-error-message {
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.kroki-error-source {
+  margin-top: 1em;
+  padding: 0.5em;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 200px;
+}
+
+.kroki-error-source pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Settings styles */
+.kroki-settings-info {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-bottom: 1em;
+}
+
+.kroki-settings-section {
+  margin-bottom: 2em;
+}
+
+.kroki-diagram-type-row {
+  display: flex;
+  align-items: center;
+  padding: 0.5em 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.kroki-diagram-type-name {
+  flex: 1;
+  font-weight: bold;
+}
+
+.kroki-diagram-type-desc {
+  flex: 2;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.kroki-diagram-type-controls {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5em;
+}
+
+/* Export dialog */
+.kroki-export-dialog {
+  width: 500px;
+  max-width: 100%;
+}
+
+.kroki-export-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  margin: 1em 0;
+}
+
+.kroki-export-preview {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 1em;
+  margin-top: 1em;
+  background-color: var(--background-secondary);
+  max-height: 200px;
+  overflow: auto;
+}
+
+/* Debug console */
+.kroki-debug-console {
+  font-family: monospace;
+  background-color: var(--background-secondary);
+  color: var(--text-normal);
+  padding: 1em;
+  border-radius: 4px;
+  height: 300px;
+  overflow: auto;
+  margin-top: 1em;
+}
+
+.kroki-debug-entry {
+  margin-bottom: 0.5em;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 0.5em;
+}
+
+.kroki-debug-timestamp {
+  color: var(--text-muted);
+  font-size: 0.8em;
+  margin-right: 0.5em;
+}
+
+.kroki-debug-level-info {
+  color: var(--text-accent);
+}
+
+.kroki-debug-level-warn {
+  color: var(--text-warning);
+}
+
+.kroki-debug-level-error {
+  color: var(--text-error);
+}
