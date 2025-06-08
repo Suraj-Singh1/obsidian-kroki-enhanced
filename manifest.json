@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-kroki-enhanced",
+  "name": "Kroki Enhanced",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Enhanced Kroki diagram rendering with configurable settings, export functionality, and debugging features",
+  "author": "Suraj-Singh1",
+  "authorUrl": "https://github.com/Suraj-Singh1",
+  "isDesktopOnly": false
+}
