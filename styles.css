@@ -137,6 +137,38 @@
   margin: 1em 0;
 }
 
+.kroki-export-buttons {
+  display: flex;
+  gap: 0.5em;
+  justify-content: flex-end;
+  margin-top: 1.5em;
+  padding-top: 1em;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.kroki-export-buttons button {
+  padding: 0.5em 1em;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.kroki-export-buttons button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.kroki-export-buttons button.mod-cta {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.kroki-export-buttons button.mod-cta:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
 .kroki-export-preview {
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
@@ -145,6 +177,18 @@
   background-color: var(--background-secondary);
   max-height: 200px;
   overflow: auto;
+}
+
+.kroki-export-preview h3 {
+  margin: 0 0 0.5em 0;
+  color: var(--text-accent);
+}
+
+.kroki-export-preview pre {
+  margin: 0;
+  font-family: monospace;
+  font-size: 0.85em;
+  color: var(--text-muted);
 }
 
 /* Debug console */
