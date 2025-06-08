@@ -478,12 +478,40 @@ class KrokiSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
+    // Plugin header
+    containerEl.createEl('h1', { text: 'Kroki Enhanced Settings' });
+    containerEl.createEl('p', { 
+      text: 'Configure diagram rendering, server settings, and export options for the Kroki Enhanced plugin.',
+      cls: 'kroki-settings-info'
+    });
+
     // Server Settings Section
-    containerEl.createEl('h2', { text: 'Server Settings' });
+    this.createServerSettings(containerEl);
     
-    new Setting(containerEl)
+    // Performance Settings Section
+    this.createPerformanceSettings(containerEl);
+    
+    // Debug Settings Section
+    this.createDebugSettings(containerEl);
+    
+    // Export Settings Section
+    this.createExportSettings(containerEl);
+    
+    // Diagram Types Section
+    this.createDiagramTypesSettings(containerEl);
+  }
+
+  private createServerSettings(containerEl: HTMLElement): void {
+    const serverSection = containerEl.createDiv({ cls: 'kroki-settings-section' });
+    serverSection.createEl('h2', { text: 'Server Settings' });
+    serverSection.createEl('p', { 
+      text: 'Configure the Kroki server connection and request parameters.',
+      cls: 'kroki-settings-info'
+    });
+    
+    new Setting(serverSection)
       .setName('Kroki Server URL')
-      .setDesc('URL of the Kroki server to use for rendering diagrams')
+      .setDesc('URL of the Kroki server to use for rendering diagrams. Use https://kroki.io/ for the public instance or your own server URL.')
       .addText(text => text
         .setPlaceholder('https://kroki.io/')
         .setValue(this.plugin.settings.server_url)
@@ -492,48 +520,17 @@ class KrokiSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
     
-    new Setting(containerEl)
+    new Setting(serverSection)
       .setName('Custom Header')
-      .setDesc('Optional custom header to send with requests to the Kroki server')
+      .setDesc('Optional custom header to send with requests to the Kroki server (e.g., for authentication)')
       .addText(text => text
-        .setPlaceholder('')
+        .setPlaceholder('Authorization: Bearer your-token')
         .setValue(this.plugin.settings.header)
         .onChange(async (value) => {
           this.plugin.settings.header = value;
           await this.plugin.saveSettings();
         }));
-    
-    // Debug Settings Section
-    containerEl.createEl('h2', { text: 'Debug Settings' });
-    
-    new Setting(containerEl)
-      .setName('Enable Debug Mode')
-      .setDesc('Enable debug logging and additional error information')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.enableDebugMode)
-        .onChange(async (value) => {
-          this.plugin.settings.enableDebugMode = value;
-          await this.plugin.saveSettings();
-        }));
-    
-    // Export Settings Section
-    containerEl.createEl('h2', { text: 'Export Settings' });
-    
-    new Setting(containerEl)
-      .setName('Pandoc Path')
-      .setDesc('Path to the Pandoc executable for export functionality')
-      .addText(text => text
-        .setPlaceholder('pandoc')
-        .setValue(this.plugin.settings.exportPandocPath)
-        .onChange(async (value) => {
-          this.plugin.settings.exportPandocPath = value;
-          await this.plugin.saveSettings();
-        }));
-    
-    new Setting(containerEl)
-      .setName('Default Export Format')
-      .setDesc('Default format to use for exports')
-      .addDropdown(dropdown => dropdown
-        .addOption('pdf', 'PDF')
-        .addOption('docx', 'Word (DOCX)')
-        .addOption('html', 'HTML')
+  }
+
+  private createPerformanceSettings(containerEl: HTMLElement): void {
+    const perfSection = containerEl.createDiv({ cls: 'kroki-settings-section' });
