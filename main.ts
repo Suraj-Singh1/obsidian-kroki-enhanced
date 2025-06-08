@@ -1,5 +1,5 @@
 import { Plugin, PluginSettingTab, Setting, App, MarkdownPostProcessorContext, MarkdownRenderer } from 'obsidian';
-import * as pako from 'pako';
+import { DiagramRenderer } from './src/diagram-renderer';
 
 // Define interfaces for plugin settings
 interface KrokiDiagramType {
@@ -21,6 +21,11 @@ interface KrokiSettings {
   exportDefaultFormat: string;
   exportCustomArgs: string;
   exportCustomStyles: string;
+  cacheSize: number;
+  cacheAge: number;
+  requestTimeout: number;
+  retryCount: number;
+  retryDelay: number;
 }
 
 // Default settings with all supported diagram types
@@ -32,6 +37,11 @@ const DEFAULT_SETTINGS: KrokiSettings = {
   exportDefaultFormat: 'pdf',
   exportCustomArgs: '',
   exportCustomStyles: '',
+  cacheSize: 100,
+  cacheAge: 3600000, // 1 hour in milliseconds
+  requestTimeout: 30000, // 30 seconds
+  retryCount: 3,
+  retryDelay: 1000, // 1 second
   diagramTypes: {
     blockdiag: {
       prettyName: "BlockDiag",
@@ -272,7 +282,7 @@ const DEFAULT_SETTINGS: KrokiSettings = {
 
 export default class KrokiEnhancedPlugin extends Plugin {
   settings: KrokiSettings;
-  aliasMap: Map<string, string> = new Map();
+  renderer: DiagramRenderer;
 
   async onload() {
     console.log('Loading Kroki Enhanced plugin');
@@ -280,8 +290,8 @@ export default class KrokiEnhancedPlugin extends Plugin {
     // Load settings
     await this.loadSettings();
     
-    // Build alias map
-    this.buildAliasMap();
+    // Initialize diagram renderer
+    this.initializeRenderer();
 
     // Register settings tab
     this.addSettingTab(new KrokiSettingTab(this.app, this));
@@ -297,6 +307,11 @@ export default class KrokiEnhancedPlugin extends Plugin {
 
   onunload() {
     console.log('Unloading Kroki Enhanced plugin');
+    
+    // Clear cache on unload
+    if (this.renderer) {
+      this.renderer.clearCache();
+    }
   }
 
   async loadSettings() {
@@ -305,66 +320,70 @@ export default class KrokiEnhancedPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
-    // Rebuild alias map when settings change
-    this.buildAliasMap();
+    
+    // Reinitialize renderer with new settings
+    this.initializeRenderer();
+    
     // Re-register processors when settings change
     this.registerDiagramProcessors();
   }
 
-  buildAliasMap() {
-    // Clear existing map
-    this.aliasMap.clear();
+  initializeRenderer() {
+    // Build diagram types map for the renderer
+    const diagramTypesMap: Record<string, string[]> = {};
     
-    // Add all enabled diagram types and their aliases to the map
     Object.entries(this.settings.diagramTypes).forEach(([key, diagramType]) => {
       if (diagramType.enabled) {
-        // Add the primary name
-        this.aliasMap.set(diagramType.obsidianBlockName, key);
-        
-        // Add all aliases
-        diagramType.aliases.forEach(alias => {
-          this.aliasMap.set(alias, key);
-        });
+        diagramTypesMap[diagramType.obsidianBlockName] = diagramType.aliases;
       }
     });
     
+    // Create or update the renderer
+    if (this.renderer) {
+      this.renderer.updateDiagramTypes(diagramTypesMap);
+    } else {
+      this.renderer = new DiagramRenderer(
+        diagramTypesMap,
+        this.settings.cacheSize,
+        this.settings.cacheAge
+      );
+    }
+    
     if (this.settings.enableDebugMode) {
-      console.log('Alias map built:', this.aliasMap);
+      console.log('Diagram renderer initialized with types:', diagramTypesMap);
     }
   }
 
   registerDiagramProcessors() {
-    // Unregister existing processors (not directly possible in Obsidian API, but we can re-register)
-    
     // Register a processor for each enabled diagram type
     Object.entries(this.settings.diagramTypes).forEach(([key, diagramType]) => {
       if (diagramType.enabled) {
         // Register the main diagram type
-        this.registerProcessor(diagramType.obsidianBlockName, key);
+        this.registerProcessor(diagramType.obsidianBlockName);
         
         // Register all aliases
         diagramType.aliases.forEach(alias => {
-          this.registerProcessor(alias, key);
+          this.registerProcessor(alias);
         });
       }
     });
   }
 
-  registerProcessor(language: string, diagramType: string) {
+  registerProcessor(language: string) {
     this.registerMarkdownCodeBlockProcessor(language, async (source, el, ctx) => {
       try {
-        await this.renderDiagram(source, el, diagramType);
+        await this.renderDiagram(source, language, el, ctx);
       } catch (error) {
-        this.handleRenderError(el, error, source, diagramType);
+        this.handleRenderError(el, error, source, language);
       }
     });
     
     if (this.settings.enableDebugMode) {
-      console.log(`Registered processor for language: ${language} -> ${diagramType}`);
+      console.log(`Registered processor for language: ${language}`);
     }
   }
 
-  async renderDiagram(source: string, el: HTMLElement, diagramType: string) {
+  async renderDiagram(source: string, language: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) {
     // Create container for the diagram
     const container = el.createDiv({ cls: 'kroki-diagram-container' });
     
@@ -373,89 +392,61 @@ export default class KrokiEnhancedPlugin extends Plugin {
     loadingEl.setText('Loading diagram...');
     
     try {
-      // Get diagram type configuration
-      const diagramConfig = this.settings.diagramTypes[diagramType];
-      if (!diagramConfig) {
-        throw new Error(`Unknown diagram type: ${diagramType}`);
-      }
-      
-      // Prepare the URL
-      const serverUrl = this.settings.server_url.endsWith('/') 
-        ? this.settings.server_url 
-        : this.settings.server_url + '/';
-      
-      // Encode the diagram source
-      const encodedDiagram = this.encodeDiagramSource(source);
-      
-      // Build the full URL
-      const url = `${serverUrl}${diagramConfig.krokiBlockName}/svg/${encodedDiagram}`;
-      
-      if (this.settings.enableDebugMode) {
-        console.log(`Rendering diagram of type ${diagramType} with URL: ${url}`);
-      }
-      
-      // Create the image element
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = `${diagramConfig.prettyName} diagram`;
-      img.className = 'kroki-diagram';
-      
-      // When the image loads, remove the loading indicator
-      img.onload = () => {
-        loadingEl.remove();
+      // Prepare rendering options
+      const renderOptions = {
+        outputFormat: 'svg',
+        serverUrl: this.settings.server_url,
+        customHeaders: this.settings.header ? { 'X-Custom-Header': this.settings.header } : undefined,
+        timeout: this.settings.requestTimeout,
+        retryCount: this.settings.retryCount,
+        retryDelay: this.settings.retryDelay,
+        useCache: true,
+        debugMode: this.settings.enableDebugMode
       };
       
-      // If there's an error loading the image, show an error
-      img.onerror = (e) => {
-        this.handleRenderError(container, new Error('Failed to load diagram image'), source, diagramType);
-        loadingEl.remove();
-      };
+      // Process the code block and render the diagram
+      const renderedContent = await this.renderer.processCodeBlock(source, language, ctx, renderOptions);
       
-      // Add the image to the container
-      container.appendChild(img);
+      if (renderedContent) {
+        // Create the image element
+        const img = document.createElement('img');
+        img.src = renderedContent;
+        img.alt = `${language} diagram`;
+        img.className = 'kroki-diagram';
+        
+        // When the image loads, remove the loading indicator
+        img.onload = () => {
+          loadingEl.remove();
+        };
+        
+        // If there's an error loading the image, show an error
+        img.onerror = (e) => {
+          this.handleRenderError(container, new Error('Failed to load diagram image'), source, language);
+          loadingEl.remove();
+        };
+        
+        // Add the image to the container
+        container.appendChild(img);
+      } else {
+        // Not a supported diagram type
+        loadingEl.remove();
+        container.remove();
+      }
       
     } catch (error) {
       // Handle any errors
-      this.handleRenderError(container, error, source, diagramType);
+      this.handleRenderError(container, error, source, language);
       loadingEl.remove();
     }
   }
 
-  encodeDiagramSource(source: string): string {
-    // Remove any leading/trailing whitespace
-    source = source.trim();
-    
-    // Replace HTML entities
-    source = source.replace(/&nbsp;/gi, ' ');
-    source = source.replace(/&gt;/gi, '>');
-    source = source.replace(/&lt;/gi, '<');
-    
-    // Encode the source using deflate + base64
-    try {
-      // Compress the source using pako (deflate)
-      const compressed = pako.deflate(source, { level: 9 });
-      
-      // Convert to base64
-      const base64 = Buffer.from(compressed).toString('base64');
-      
-      // Make it URL safe
-      return base64
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-    } catch (error) {
-      console.error('Error encoding diagram source:', error);
-      throw new Error('Failed to encode diagram source');
-    }
-  }
-
-  handleRenderError(el: HTMLElement, error: Error, source: string, diagramType: string) {
+  handleRenderError(el: HTMLElement, error: Error, source: string, language: string) {
     // Create error container
     const errorContainer = el.createDiv({ cls: 'kroki-error-container' });
     
     // Add error message
     const errorMessage = errorContainer.createDiv({ cls: 'kroki-error-message' });
-    errorMessage.setText(`Error rendering ${diagramType} diagram: ${error.message}`);
+    errorMessage.setText(`Error rendering ${language} diagram: ${error.message}`);
     
     // Add source code display if debug is enabled
     if (this.settings.enableDebugMode) {
@@ -468,7 +459,7 @@ export default class KrokiEnhancedPlugin extends Plugin {
       
       console.error('Kroki diagram rendering error:', {
         error,
-        diagramType,
+        language,
         source
       });
     }
@@ -534,4 +525,15 @@ class KrokiSettingTab extends PluginSettingTab {
       .addText(text => text
         .setPlaceholder('pandoc')
         .setValue(this.plugin.settings.exportPandocPath)
-        .onChange(async (value) =>
+        .onChange(async (value) => {
+          this.plugin.settings.exportPandocPath = value;
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('Default Export Format')
+      .setDesc('Default format to use for exports')
+      .addDropdown(dropdown => dropdown
+        .addOption('pdf', 'PDF')
+        .addOption('docx', 'Word (DOCX)')
+        .addOption('html', 'HTML')
