@@ -176,7 +176,7 @@ export class KrokiClient {
     maxRetries: number, 
     retryDelay: number
   ): Promise<RequestUrlResponse> {
-    let lastError: Error;
+    let lastError: Error | null = null;
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
@@ -212,7 +212,11 @@ export class KrokiClient {
     }
     
     // If all retries failed, throw the last error
-    throw lastError;
+    if (lastError) {
+      throw lastError;
+    } else {
+      throw new Error('Unknown error during request');
+    }
   }
 
   /**
