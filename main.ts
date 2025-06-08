@@ -533,5 +533,140 @@ export default class KrokiEnhancedPlugin extends Plugin {
     
     // Add error message
     const errorMessage = errorContainer.createDiv({ cls: 'kroki-error-message' });
-    errorMessage.setText(`Error`);
+    errorMessage.setText(`Error: ${error.message || error}`);
   }
+}
+
+
+class KrokiSettingTab extends PluginSettingTab {
+  plugin: KrokiEnhancedPlugin;
+
+  constructor(app: App, plugin: KrokiEnhancedPlugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+
+  display(): void {
+    const { containerEl } = this;
+
+    containerEl.empty();
+    containerEl.createEl('h2', { text: 'Kroki Enhanced Settings' });
+
+    // Server URL setting
+    new Setting(containerEl)
+      .setName('Kroki Server URL')
+      .setDesc('The base URL of the Kroki server.')
+      .addText(text =>
+        text
+          .setPlaceholder('https://kroki.io/')
+          .setValue(this.plugin.settings.server_url)
+          .onChange(async (value) => {
+            this.plugin.settings.server_url = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Header setting
+    new Setting(containerEl)
+      .setName('Custom HTTP Header')
+      .setDesc('Optional custom HTTP header sent to Kroki server.')
+      .addText(text =>
+        text
+          .setPlaceholder('')
+          .setValue(this.plugin.settings.header)
+          .onChange(async (value) => {
+            this.plugin.settings.header = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Enable debug mode
+    new Setting(containerEl)
+      .setName('Enable Debug Mode')
+      .setDesc('Enable detailed logging for debugging.')
+      .addToggle(toggle =>
+        toggle
+          .setValue(this.plugin.settings.enableDebugMode)
+          .onChange(async (value) => {
+            this.plugin.settings.enableDebugMode = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Export Pandoc Path
+    new Setting(containerEl)
+      .setName('Pandoc Path')
+      .setDesc('Path to the pandoc executable for export (default: pandoc in PATH).')
+      .addText(text =>
+        text
+          .setPlaceholder('pandoc')
+          .setValue(this.plugin.settings.exportPandocPath)
+          .onChange(async (value) => {
+            this.plugin.settings.exportPandocPath = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Export Default Format
+    new Setting(containerEl)
+      .setName('Default Export Format')
+      .setDesc('Default export format (e.g., pdf, docx, html).')
+      .addText(text =>
+        text
+          .setPlaceholder('pdf')
+          .setValue(this.plugin.settings.exportDefaultFormat)
+          .onChange(async (value) => {
+            this.plugin.settings.exportDefaultFormat = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Export Custom Args
+    new Setting(containerEl)
+      .setName('Custom Export Arguments')
+      .setDesc('Custom arguments to pass to the export command.')
+      .addText(text =>
+        text
+          .setPlaceholder('')
+          .setValue(this.plugin.settings.exportCustomArgs)
+          .onChange(async (value) => {
+            this.plugin.settings.exportCustomArgs = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Cache size
+    new Setting(containerEl)
+      .setName('Cache Size')
+      .setDesc('Number of diagrams to cache in memory.')
+      .addText(text =>
+        text
+          .setPlaceholder('100')
+          .setValue(this.plugin.settings.cacheSize.toString())
+          .onChange(async (value) => {
+            const num = parseInt(value);
+            if (!isNaN(num)) {
+              this.plugin.settings.cacheSize = num;
+              await this.plugin.saveSettings();
+            }
+          })
+      );
+
+    // Cache age
+    new Setting(containerEl)
+      .setName('Cache Age (ms)')
+      .setDesc('Maximum age of cached diagrams in milliseconds.')
+      .addText(text =>
+        text
+          .setPlaceholder('3600000')
+          .setValue(this.plugin.settings.cacheAge.toString())
+          .onChange(async (value) => {
+            const num = parseInt(value);
+            if (!isNaN(num)) {
+              this.plugin.settings.cacheAge = num;
+              await this.plugin.saveSettings();
+            }
+          })
+      );
+  }
+}
