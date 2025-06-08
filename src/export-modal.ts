@@ -75,7 +75,7 @@ export class ExportModal extends Modal {
       .setName('Include Images')
       .setDesc('Embed images directly in the exported document')
       .addToggle(toggle => toggle
-        .setValue(this.exportOptions.includeImages)
+        .setValue(this.exportOptions.includeImages || false)
         .onChange((value) => {
           this.exportOptions.includeImages = value;
         }));
