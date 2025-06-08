@@ -1,6 +1,8 @@
 import { Plugin, PluginSettingTab, Setting, App, MarkdownPostProcessorContext, MarkdownRenderer, Menu, TFile } from 'obsidian';
 import { DiagramRenderer } from './src/diagram-renderer';
 import { ExportModal } from './src/export-modal';
+import { DebugManager, DebugLevel } from './src/debug-manager';
+import { DebugModal } from './src/debug-modal';
 
 // Define interfaces for plugin settings
 interface KrokiDiagramType {
@@ -284,12 +286,21 @@ const DEFAULT_SETTINGS: KrokiSettings = {
 export default class KrokiEnhancedPlugin extends Plugin {
   settings: KrokiSettings;
   renderer: DiagramRenderer;
+  debugManager: DebugManager;
 
   async onload() {
     console.log('Loading Kroki Enhanced plugin');
     
     // Load settings
     await this.loadSettings();
+    
+    // Initialize debug manager
+    this.debugManager = new DebugManager(
+      1000, // Max log entries
+      this.settings.enableDebugMode ? DebugLevel.DEBUG : DebugLevel.INFO
+    );
+    
+    this.debugManager.info('plugin', 'Kroki Enhanced plugin starting up');
     
     // Initialize diagram renderer
     this.initializeRenderer();
@@ -316,6 +327,15 @@ export default class KrokiEnhancedPlugin extends Plugin {
       }
     });
 
+    // Add debug console command
+    this.addCommand({
+      id: 'open-debug-console',
+      name: 'Open debug console',
+      callback: () => {
+        new DebugModal(this.app, this, this.debugManager).open();
+      }
+    });
+
     // Add context menu item for export
     this.registerEvent(
       this.app.workspace.on('file-menu', (menu, file) => {
@@ -332,6 +352,8 @@ export default class KrokiEnhancedPlugin extends Plugin {
       })
     );
 
+    this.debugManager.info('plugin', 'Kroki Enhanced plugin loaded successfully');
+    
     // Add debug log
     if (this.settings.enableDebugMode) {
       console.log('Kroki Enhanced plugin loaded with settings:', this.settings);
@@ -353,6 +375,14 @@ export default class KrokiEnhancedPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+    
+    // Update debug manager level when settings change
+    if (this.debugManager) {
+      this.debugManager.setLevel(
+        this.settings.enableDebugMode ? DebugLevel.DEBUG : DebugLevel.INFO
+      );
+      this.debugManager.info('settings', 'Plugin settings updated');
+    }
     
     // Reinitialize renderer with new settings
     this.initializeRenderer();
@@ -417,6 +447,8 @@ export default class KrokiEnhancedPlugin extends Plugin {
   }
 
   async renderDiagram(source: string, language: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) {
+    const startTime = Date.now();
+    
     // Create container for the diagram
     const container = el.createDiv({ cls: 'kroki-diagram-container' });
     
@@ -425,6 +457,11 @@ export default class KrokiEnhancedPlugin extends Plugin {
     loadingEl.setText('Loading diagram...');
     
     try {
+      this.debugManager.debug('diagram-render', `Starting render for ${language} diagram`, {
+        sourceLength: source.length,
+        language
+      });
+      
       // Prepare rendering options
       const renderOptions = {
         outputFormat: 'svg',
@@ -450,10 +487,20 @@ export default class KrokiEnhancedPlugin extends Plugin {
         // When the image loads, remove the loading indicator
         img.onload = () => {
           loadingEl.remove();
+          const endTime = Date.now();
+          const renderTime = endTime - startTime;
+          
+          this.debugManager.recordSuccessfulRequest(renderTime);
+          this.debugManager.debug('diagram-render', `Successfully rendered ${language} diagram`, {
+            renderTime,
+            language
+          });
         };
         
         // If there's an error loading the image, show an error
         img.onerror = (e) => {
+          this.debugManager.recordFailedRequest();
+          this.debugManager.error('diagram-render', `Failed to load diagram image for ${language}`, e);
           this.handleRenderError(container, new Error('Failed to load diagram image'), source, language);
           loadingEl.remove();
         };
@@ -462,12 +509,19 @@ export default class KrokiEnhancedPlugin extends Plugin {
         container.appendChild(img);
       } else {
         // Not a supported diagram type
+        this.debugManager.debug('diagram-render', `No renderer found for language: ${language}`);
         loadingEl.remove();
         container.remove();
       }
       
     } catch (error) {
       // Handle any errors
+      this.debugManager.recordFailedRequest();
+      this.debugManager.error('diagram-render', `Error rendering ${language} diagram: ${error.message}`, {
+        error: error.message,
+        language,
+        sourceLength: source.length
+      });
       this.handleRenderError(container, error, source, language);
       loadingEl.remove();
     }
@@ -479,65 +533,5 @@ export default class KrokiEnhancedPlugin extends Plugin {
     
     // Add error message
     const errorMessage = errorContainer.createDiv({ cls: 'kroki-error-message' });
-    errorMessage.setText(`Error rendering ${language} diagram: ${error.message}`);
-    
-    // Add source code display if debug is enabled
-    if (this.settings.enableDebugMode) {
-      const sourceContainer = errorContainer.createDiv({ cls: 'kroki-error-source' });
-      const sourceHeader = sourceContainer.createEl('h4');
-      sourceHeader.setText('Diagram Source:');
-      
-      const sourceCode = sourceContainer.createEl('pre');
-      sourceCode.setText(source);
-      
-      console.error('Kroki diagram rendering error:', {
-        error,
-        language,
-        source
-      });
-    }
+    errorMessage.setText(`Error`);
   }
-}
-
-class KrokiSettingTab extends PluginSettingTab {
-  plugin: KrokiEnhancedPlugin;
-
-  constructor(app: App, plugin: KrokiEnhancedPlugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    // Plugin header
-    containerEl.createEl('h1', { text: 'Kroki Enhanced Settings' });
-    containerEl.createEl('p', { 
-      text: 'Configure diagram rendering, server settings, and export options for the Kroki Enhanced plugin.',
-      cls: 'kroki-settings-info'
-    });
-
-    // Server Settings Section
-    this.createServerSettings(containerEl);
-    
-    // Performance Settings Section
-    this.createPerformanceSettings(containerEl);
-    
-    // Debug Settings Section
-    this.createDebugSettings(containerEl);
-    
-    // Export Settings Section
-    this.createExportSettings(containerEl);
-    
-    // Diagram Types Section
-    this.createDiagramTypesSettings(containerEl);
-  }
-
-  private createServerSettings(containerEl: HTMLElement): void {
-    const serverSection = containerEl.createDiv({ cls: 'kroki-settings-section' });
-    serverSection.createEl('h2', { text: 'Server Settings' });
-    serverSection.createEl('p', { 
-      text: 'Configure the Kroki server connection and request parameters.',
-      cls: 'kroki-settings-info'
-    });
