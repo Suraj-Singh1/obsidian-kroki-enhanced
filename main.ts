@@ -1,4 +1,4 @@
-import { Plugin, PluginSettingTab, Setting, App, MarkdownPostProcessorContext, MarkdownRenderer, Menu, TFile } from 'obsidian';
+import { Plugin, PluginSettingTab, Setting, App, MarkdownPostProcessorContext, MarkdownRenderer, Menu, TFile, MarkdownView, Notice } from 'obsidian';
 import { DiagramRenderer } from './src/diagram-renderer';
 import { ExportModal } from './src/export-modal';
 import { DebugManager, DebugLevel } from './src/debug-manager';
@@ -391,6 +391,17 @@ export default class KrokiEnhancedPlugin extends Plugin {
     this.registerDiagramProcessors();
   }
 
+  refreshAllMarkdownViews() {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view && leaf.view.getViewType && leaf.view.getViewType() === 'markdown') {
+        const mdView = leaf.view;
+        if (typeof (mdView as any).rerender === 'function') {
+          (mdView as any).rerender();
+        }
+      }
+    });
+  }
+
   initializeRenderer() {
     // Build diagram types map for the renderer
     const diagramTypesMap: Record<string, string[]> = {};
@@ -570,6 +581,24 @@ class KrokiSettingTab extends PluginSettingTab {
     containerEl.empty();
     
     containerEl.createEl('h2', { text: 'Kroki Enhanced Settings' });
+
+    // Add a reload button for users to apply alias/code block changes instantly
+    new Setting(containerEl)
+      .setName('Reload Plugin')
+      .setDesc('Some changes (like aliases) require a plugin reload to take full effect. Click to reload the plugin now.')
+      .addButton(button => button
+        .setButtonText('Reload Now')
+        .setCta()
+        .onClick(() => {
+          new Notice('Reloading Kroki Enhanced plugin...');
+          // @ts-ignore
+          this.app.plugins.disablePlugin('obsidian-kroki-enhanced');
+          setTimeout(() => {
+            // @ts-ignore
+            this.app.plugins.enablePlugin('obsidian-kroki-enhanced');
+          }, 1000);
+        })
+      );
     
     // Server settings section
     containerEl.createEl('h3', { text: 'Server Settings' });
