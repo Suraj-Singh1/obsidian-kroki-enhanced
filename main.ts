@@ -420,14 +420,18 @@ export default class KrokiEnhancedPlugin extends Plugin {
   registerDiagramProcessors() {
     // Register a processor for each enabled diagram type
     Object.entries(this.settings.diagramTypes).forEach(([key, diagramType]) => {
-      if (diagramType.enabled) {
-        // Register the main diagram type
-        this.registerProcessor(diagramType.obsidianBlockName);
-        
-        // Register all aliases
+      if (!diagramType.enabled) {
+        // If diagram type is disabled, do not register its block or aliases
+        return;
+      }
+      if (diagramType.aliases && diagramType.aliases.length > 0) {
+        // If aliases are set, only register the aliases
         diagramType.aliases.forEach(alias => {
           this.registerProcessor(alias);
         });
+      } else {
+        // If no aliases, register the main block name
+        this.registerProcessor(diagramType.obsidianBlockName);
       }
     });
   }
